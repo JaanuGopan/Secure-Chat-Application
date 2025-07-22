@@ -238,17 +238,17 @@ public class ChatClient extends JFrame {
             byte[] encryptedKey = Base64.getDecoder().decode(encryptedKeyB64);
             byte[] signature = Base64.getDecoder().decode(signatureB64);
 
-// Decrypt AES key with private RSA key
+            // Decrypt AES key with private RSA key
             byte[] aesKeyBytes = rsaDecrypt(encryptedKey, rsaKeyPair.getPrivate());
 
-// Verify signature on decrypted AES key bytes using sender's public key
+            // Verify signature on decrypted AES key bytes using sender's public key
             PublicKey senderPub = clientPublicKeys.get(from);
             if (!rsaVerify(aesKeyBytes, signature, senderPub)) {
                 appendChat("System", "Signature verification failed from " + from);
                 return;
             }
 
-// Store session key
+            // Store session key
             SecretKey aesKey = new SecretKeySpec(aesKeyBytes, "AES");
             sessionKeys.put(from, aesKey);
 

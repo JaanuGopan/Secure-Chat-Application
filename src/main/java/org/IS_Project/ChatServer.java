@@ -15,7 +15,7 @@ public class ChatServer {
         String name;
         PublicKey publicKey;
         Socket socket;
-        ObjectOutputStream out;
+        final ObjectOutputStream out;
 
         ClientInfo(String name, PublicKey publicKey, Socket socket, ObjectOutputStream out) {
             this.name = name;
