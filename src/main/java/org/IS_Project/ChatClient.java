@@ -1,9 +1,10 @@
 package org.IS_Project;
 
+import org.IS_Project.auth.AuthService;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.awt.event.*;
 import java.io.*;
 import java.net.*;
 import java.security.*;
@@ -109,37 +110,70 @@ public class ChatClient extends JFrame {
     }
 
     private void askUsernameAndConnect() {
-        myName = JOptionPane.showInputDialog(this, "Enter your display name:", "Username", JOptionPane.PLAIN_MESSAGE);
-        if (myName == null || myName.trim().isEmpty()) {
+        // Choose Sign Up or Login
+        String[] options = {"Sign Up", "Login"};
+        int choice = JOptionPane.showOptionDialog(this, "Welcome! Please choose:", "Authentication",
+                JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null, options, options[0]);
+
+        if (choice == -1) { // user closed dialog
             System.exit(0);
         }
+
+        String username = JOptionPane.showInputDialog(this, "Enter username:");
+        if (username == null || username.trim().isEmpty()) {
+            System.exit(0);
+        }
+        String password = JOptionPane.showInputDialog(this, "Enter password:");
+        if (password == null || password.trim().isEmpty()) {
+            System.exit(0);
+        }
+
         try {
             // Generate RSA key pair
             rsaKeyPair = generateRSAKeyPair();
+            String pubKeyStr = publicKeyToString(rsaKeyPair.getPublic());
 
-            // Connect to server
+            boolean success = false;
+            if (choice == 0) { // Sign Up
+                success = AuthService.signup(username, password, pubKeyStr);
+                if (!success) {
+                    JOptionPane.showMessageDialog(this, "Username already exists. Restart and try again.", "Error", JOptionPane.ERROR_MESSAGE);
+                    System.exit(0);
+                }
+            } else { // Login
+                success = AuthService.login(username, password);
+                if (!success) {
+                    JOptionPane.showMessageDialog(this, "Invalid username or password.", "Error", JOptionPane.ERROR_MESSAGE);
+                    System.exit(0);
+                }
+            }
+
+            // Auth succeeded
+            myName = username;
+
+            // Connect to server as before
             socket = new Socket("localhost", 12345);
             out = new ObjectOutputStream(socket.getOutputStream());
             in = new ObjectInputStream(socket.getInputStream());
 
-            // Register
+            // Register with server
             Map<String, String> reg = new HashMap<>();
             reg.put("name", myName);
-            reg.put("publicKey", publicKeyToString(rsaKeyPair.getPublic()));
+            reg.put("publicKey", pubKeyStr);
             out.writeObject(reg);
             out.flush();
 
             Object resp = in.readObject();
             if (resp instanceof String) {
                 if ("NAME_TAKEN".equals(resp)) {
-                    JOptionPane.showMessageDialog(this, "Name already taken, restart and choose another.", "Error", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "Name already taken on server. Restart.", "Error", JOptionPane.ERROR_MESSAGE);
                     System.exit(0);
                 } else if ("REGISTERED".equals(resp)) {
                     statusLabel.setText("Registered as " + myName);
                 }
             }
 
-            // Start listening thread
+            // Start listening
             new Thread(this::listenFromServer).start();
 
         } catch (Exception ex) {
@@ -148,6 +182,7 @@ public class ChatClient extends JFrame {
             System.exit(0);
         }
     }
+
 
     private void listenFromServer() {
         try {
